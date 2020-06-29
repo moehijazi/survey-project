@@ -1,5 +1,8 @@
 import React from 'react';
 import Button from '@material-ui/core/Button';
+import Select from '@material-ui/core/Select';
+import InputLabel from '@material-ui/core/InputLabel';
+import MenuItem from '@material-ui/core/MenuItem';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import TextField from '@material-ui/core/TextField';
 import Link from '@material-ui/core/Link';
@@ -88,7 +91,16 @@ export default function SignIn() {
               id="password"
               autoComplete="current-password"
             />
-            
+            <InputLabel id="demo-simple-select-label">Choose your level</InputLabel>
+            <Select
+              labelId="demo-simple-select-label"
+              id="demo-simple-select"
+              
+            >
+              <MenuItem value={'student'}>Student</MenuItem>
+              <MenuItem value={'staff'}>Staff</MenuItem>
+
+            </Select>
             <Button
               type="submit"
               fullWidth
