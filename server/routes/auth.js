@@ -7,4 +7,7 @@ Router.post("/login", loginUser);
 //Forgotten password
 Router.post("/forgot", forgotPassword);
 
+//Reset password
+Router.patch("/reset", resetPassword);
+
 module.exports = Router;
