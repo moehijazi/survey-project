@@ -5,9 +5,9 @@ const { getCourses, getSurvey, postSurvey } = require("../controllers/student");
 Router.get("/courses/", getCourses);
 
 // Get survey questions
-Router.get("/course/:courseId", getSurvey);
+Router.get("/course/:sectionId/:departmentId", getSurvey);
 
 // Post survey answers
-Router.post("/course/:courseId", postSurvey);
+Router.post("/course/:sectionId", postSurvey);
 
 module.exports = Router;

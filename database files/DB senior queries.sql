@@ -208,7 +208,7 @@ where Q1.Question_id = ''
 select Q1.Option_id
 from Question_Options as Q1
 where Q.Question_id = '' -- pass question id here
-
+	
 -- now return option description for each option id
 -- execute this query for that
 select O1.Option_id, Option_description
@@ -228,6 +228,11 @@ where A.Teacher_id = '' and A.Section_id = ''
 
 -- get total sum of rate for a teacher in a section
 select T.Section_Teacher_sum_of_rates
+from teaches as T
+where T.Teacher_id = '' and T.Section_id = ''
+
+-- get total sum of rate for a teacher in all sections
+select T.Section_Teacher_sum_of_rates, T.Section_id
 from teaches as T
 where T.Teacher_id = ''
 
