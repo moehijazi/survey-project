@@ -8,14 +8,11 @@ const loginUser = async (req, res) => {
   const { id, password, role } = req.body;
 
   try {
-    console.log("RECIEVED REQ");
-    const checkId = await pool.query("SELECT * FROM users WHERE id = ($1)", [
-      id,
-    ]);
     if (role === "student") {
-      const checkId = await pool.query("SELECT * FROM users WHERE id = ($1)", [
-        id,
-      ]);
+      const checkId = await pool.query(
+        "select * from Students as S where S.Student_id = ($1) and S.Student_passward = ($2) ;",
+        [id]
+      );
     }
     if (role === "staff") {
       const checkId = await pool.query(" ENTER QUERY HERE LATER");
@@ -28,7 +25,7 @@ const loginUser = async (req, res) => {
     const checkPass = await bcrypt.compare(password, checkId.rows[0].password);
     if (!checkPass) {
       return res.status(401).json({
-        message: "Email / password doesnot match. Please try again later",
+        message: "Email / password does not match. Please try again later",
       });
     }
     const resp = {
@@ -56,21 +53,16 @@ const forgotPassword = async (req, res) => {
   const { id, email, role } = req.body;
 
   try {
-    const checkId = await pool.query(" SELECT * FROM users WHERE id = ($1)", [
-      id,
-    ]);
+    const checkId = await pool.query(
+      " select * from Students as S where S.Student_id = ($1) and S.Student_email = ($2) ;",
+      [id, email]
+    );
 
     if (!checkId.rowCount) {
       return res
         .status(404)
-        .json({ message: "User not found. Please register and try again." });
+        .json({ message: "User not found. Please try again." });
     }
-
-    const checkEmail = email == checkId.rows[0].email;
-    if (!checkEmail)
-      return res.status(401).json({
-        message: "Email / ID does not match. Please try again later",
-      });
 
     const result = await createResetRequest(email, role);
 
@@ -81,29 +73,30 @@ const forgotPassword = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
-  const { id, password, role } = req.body;
+  const { req_id, password, role } = req.body;
   try {
     const thisRequest = await pool.query(
       'SELECT * FROM "resetRequest" WHERE id= ($1)',
-      [id]
+      [req_id]
     );
     if (!thisRequest.rowCount) {
-      return res.status(404).json("ERROR");
+      return res.status(404).json("Request not found");
     }
     const hashedPass = await bcrypt.hash(password, 10);
     const ans = await pool.query(
       "UPDATE users SET password = ($1) WHERE email = ($2) RETURNING *",
       [hashedPass, thisRequest.rows[0].email]
     );
-    return res.status(200).json(ans);
+    return res.status(200).json({ message: "Password reset!" });
   } catch (error) {
-    return res.json(error.message);
+    return res.status(500).json(error.message);
   }
 };
 
 const changeEmail = async (req, res) => {
   try {
-    const { email, id, role } = req.body;
+    const { id, role } = req.user;
+    const { newemail } = req.body;
     const addemail = await pool.query("ADD QUERY HERE DEPENDING ON ROLE");
     if (!addemail) return res.status(404).json({ message: "User not found" });
     return res.status(200).json("Email changed");

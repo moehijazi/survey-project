@@ -1,13 +1,18 @@
 const pool = require("../db/index");
+const { get } = require("../routes");
 
 const getCourses = async (req, res) => {
-  const { id } = req.params.userId;
+  const { user_id } = req.user_id;
 
   try {
     const getAvailableSurveys = await pool.query(
       " QUERY TO GET COURSES WITH AVAILABLE SURVEYS"
     );
 
+    if (!getAvailableSurveys.rowCount)
+      return res.status(401).json({ message: "No surveys available" });
+
+    resp = {};
     return res.status(200).json(getAvailableSurveys);
   } catch (error) {
     return res.status(500).json({
