@@ -95,8 +95,8 @@ const resetPassword = async (req, res) => {
 
 const changeEmail = async (req, res) => {
   try {
-    const { id, role } = req.user;
-    const { newemail } = req.body;
+    const { user_id, role } = req.user;
+    const { new_email } = req.body;
     const addemail = await pool.query("ADD QUERY HERE DEPENDING ON ROLE");
     if (!addemail) return res.status(404).json({ message: "User not found" });
     return res.status(200).json("Email changed");
@@ -109,10 +109,9 @@ const changeEmail = async (req, res) => {
 };
 
 const changePassword = async (req, res) => {
-  const { id, role, oldPassword, newPassword } = req.body;
+  const { user_id, role } = req.user;
+  const { oldPassword, newPassword } = req.body;
   try {
-    const getUser = await pool.query("GET USER QUERY BASED ON ROLE");
-    if (!getUser) return res.status(404).json({ message: "User not found" });
     const checkPass = await bcrypt.compare(
       oldPassword,
       getUser.rows[0].password
@@ -124,6 +123,7 @@ const changePassword = async (req, res) => {
     }
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     const updateUser = await pool.query("update pass");
+    return res.status(200).json("Email changed");
   } catch (error) {
     return res.status(500).json({
       message:

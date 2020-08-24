@@ -1,5 +1,4 @@
 const Router = require("express").Router();
-const authUser = require("../services/Auth");
 const {
   loginUser,
   forgotPassword,

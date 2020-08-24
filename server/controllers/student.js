@@ -45,6 +45,7 @@ const getSurvey = async (req, res) => {
           question_id: '',
           question_description: '',
           number_options: 0,
+          weight: question.Question_weight,
           options: []
         }
         let getQuestionInfo = await client.query("select Q.Question_id, Q.Question_description, Q.No_of_options from Questions as Q1 where Q1.Question_id = ($1)", question.Question_id);
@@ -98,8 +99,14 @@ const postSurvey = async (req, res) => {
 
   try {
     answers.forEach(answer => {
-      let {question_id, rate} = answer;
+      let {question_id, weight, number_options, rate} = answer;
       let saveAnswer = await client.query("insert into Answers(Teacher_id, Question_id, Student_id, Rate) values (($1), ($2),($3) ,($4))", [teacher_id, question_id, user_id, rate]);
+      await client.query('BEGIN');
+      let query_text = "update registered_in set is_voted = true, Vote_date = ($1) , Vote_time = ($2) where Student_id = ($3)";
+      let today = new Date();
+      let date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+      let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+      let query_values = [date, time, user_id]
     });
     if(free_text){
       let saveFreeText = await client.query("insert into Active_Free_Texts(Teacher_id, Student_id, Section_id, Free_text) values ( ($1),($2),($3) ,($4))", [teacher_id,user_id, section_id, free_text]);}

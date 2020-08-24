@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const checkAuth = (req, res, next) => {
+const checkAuth = async (req, res, next) => {
   const token = req.headers["x-auth-token"];
   if (!token)
     return res.status(401).json({ message: "Failed to authenticate" });
