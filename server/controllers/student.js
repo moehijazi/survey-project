@@ -13,6 +13,8 @@ const getCourses = async (req, res) => {
 
     const resp = {
       survey_count: getAvailableSurveys.rowCount,
+      total_courses: total_courses,
+      total_voted: total_voted,
       surveys: getAvailableSurveys.rows
     };
     return res.status(200).json(resp);
