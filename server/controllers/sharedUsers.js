@@ -6,9 +6,10 @@ const { createResetRequest, getResetRequest } = require("../services/Reset");
 // Login user function
 const loginUser = async (req, res) => {
   const { id, password, role } = req.body;
-
+  const Role;
   try {
     if (role === "student") {
+      Role = "student"
       const checkId = await pool.query(
         "select * from Students as S where S.Student_id = ($1) and S.Student_passward = ($2) ;",
         [id]
@@ -34,6 +35,7 @@ const loginUser = async (req, res) => {
         name: checkId.rows[0].name,
         email: checkId.rows[0].email,
       },
+      role: Role
     };
     resp.accessToken = jwt.sign(
       { user: checkId.rows[0].user_id },

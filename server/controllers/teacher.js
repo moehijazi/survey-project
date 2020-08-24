@@ -127,7 +127,7 @@ const getTeacherScore = async (req,res) => {
             let {Section_Teacher_sum_of_rates, Section_id} = scoreRow;
             courseScore += getScoreCourse(Section_id, user_id, Section_Teacher_sum_of_rates);
         });
-        courses_score = courses_score / getScoreRows.rowCount;
+        courses_score = (courses_score / getScoreRows.rowCount).toFixed(2);
         const resp = {score: courses_score};
         return res.status(200).json(resp);
     } catch (error) {
@@ -136,3 +136,5 @@ const getTeacherScore = async (req,res) => {
         client.release();
     }
 }
+
+module.exports = {getCourses, getResultsSurvey, getCourseScore, getTeacherScore};
