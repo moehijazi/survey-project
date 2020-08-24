@@ -3,7 +3,7 @@ const pool = require("../db/index");
 var nodemailer = require("nodemailer");
 
 // Create a reset request and send it
-const createResetRequest = async (email, role) => {
+const createResetRequest = async (email, role, user_id) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -12,16 +12,11 @@ const createResetRequest = async (email, role) => {
     },
   });
   const id = uuidv1();
-  const request = {
-    id,
-    email,
-    role,
-  };
 
   try {
     const insertQuery = await pool.query(
-      'INSERT INTO "resetRequest" (id, email) VALUES (($1), ($2));',
-      [id, email]
+      "INSERT INTO Reset_Requests (Request_id, Request_email, User_id) VALUES (($1), ($2), ($3));",
+      [id, email, user_id]
     );
     const mailOptions = {
       from: process.env.EMAIL_ACC,
@@ -38,9 +33,10 @@ const createResetRequest = async (email, role) => {
 };
 
 const getResetRequest = async (id) => {
-  const ans = await pool.query('SELECT * FROM "resetRequest" WHERE id= ($1)', [
-    id,
-  ]);
+  const ans = await pool.query(
+    "SELECT * FROM Reset_Requests WHERE Request_id= ($1)",
+    [id]
+  );
   return ans;
 };
 

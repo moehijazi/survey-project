@@ -15,7 +15,15 @@ const checkAuth = async (req, res, next) => {
         );
         req.user = { user_id: getUser.rows[0].Student_id, branch_id: getUser.rows[0].Branch.id, department_id: getUser.rows[0].Department_id, role: role};
         break;
-      case "staff":
+      case "teacher":
+        const getUser = await pool.query(
+          "select * from Teachers as S where S.Teacher_id = ($1);",
+          [id]
+        );
+        req.user = { user_id: getUser.rows[0].Teacher_id, branch_id: getUser.rows[0].Branch.id, department_id: getUser.rows[0].Department_id, role: role};
+        break;
+      case "faculty manager":
+        // CONTINUE DOING THESE / CHECK DATABASE
     }
 
     
