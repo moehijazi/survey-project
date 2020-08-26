@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
+const poolX = require("../db/index");
 
 const checkAuth = async (req, res, next) => {
+  const pool = await poolX.connect();
   const token = req.headers["x-auth-token"];
   if (!token)
     return res.status(401).json({ message: "Failed to authenticate" });
@@ -20,10 +22,15 @@ const checkAuth = async (req, res, next) => {
           "select * from Teachers as S where S.Teacher_id = ($1);",
           [id]
         );
-        req.user = { user_id: getUser.rows[0].Teacher_id, branch_id: getUser.rows[0].Branch.id, department_id: getUser.rows[0].Department_id, role: role};
+        req.user = { user_id: getUser.rows[0].Teacher_id, role: role};
         break;
       case "faculty manager":
-        // CONTINUE DOING THESE / CHECK DATABASE
+        const getUser = await pool.query(
+          "select * from Faculty_Managers as S where S.Faculty_manager_id = ($1);",
+          [id]
+        );
+        req.user = { user_id: getUser.rows[0].Teacher_id, role: role};
+        break;
     }
 
     

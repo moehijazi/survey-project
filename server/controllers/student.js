@@ -100,16 +100,31 @@ const postSurvey = async (req, res) => {
   const client = await pool.connect();
 
   try {
+    let sumRates=0;
+    let sumWeights = 0;
     answers.forEach(answer => {
       let {question_id, weight, number_options, rate} = answer;
       let saveAnswer = await client.query("insert into Answers(Teacher_id, Question_id, Student_id, Rate) values (($1), ($2),($3) ,($4))", [teacher_id, question_id, user_id, rate]);
-      await client.query('BEGIN');
+      sumRates+= (rate / number_options) * weight;
+      sumWeights += weight;
+
+    });
+    let score = ((sumRates / sumWeights) * 100).toFixed(2);
+    let query_run = await client.query('BEGIN');
       let query_text = "update registered_in set is_voted = true, Vote_date = ($1) , Vote_time = ($2) where Student_id = ($3)";
       let today = new Date();
       let date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
       let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
       let query_values = [date, time, user_id]
-    });
+      query_run = await client.query(query_text, query_values);
+      query_run = await client.query("update teaches set Section_Teacher_sum_rates = Section_Teacher_sum_rates + ($1) where Section_id = ($2) and Teacher_id = ($3);",[score, section_id, teacher_id]);
+      query_run = await client.query("update Sections set Section_no_of_votes = Section_no_of_votes + 1 where Section_id = ($1)",[section_id]);
+      const Section_info = await client.query("select * from Sections where Section_id = ($1)", [section_id]);
+      const {Branch_id, Department_id} = Section_info.rows[0];
+      query_run = await client.query("update Branches set Branch_real_votes = Branch_real_votes + 1, Branch_sum_of_rates = Branch_sum_of_rates + ($1) where Branch_id = ($2)",[score, Branch_id]);
+      query_run = await client.query("update Department_Branch set Dep_real_votes = Dep_real_votes + 1, Dep_sum_of_rates = Dep_sum_of_rates + ($1) where Branch_id = ($2) and Department_id = ($3)",[score,Branch_id,Department_id]);
+      query_run = await client.query("update Faculities set Faculty_real_votes = Faculty_real_votes + 1, Faculty_sum_of_rates = Faculty_sum_of_rates + ($1) where Faculty_id = (select D.Faculty_id from Departments as D where D.Department_id = ($2);)",[score,Department_id]);
+
     if(free_text){
       let saveFreeText = await client.query("insert into Active_Free_Texts(Teacher_id, Student_id, Section_id, Free_text) values ( ($1),($2),($3) ,($4))", [teacher_id,user_id, section_id, free_text]);}
     

@@ -22,7 +22,6 @@ const getCourses = async (req, res) => {
 }
 
 const getResultsSurvey = async (req, res) => {
-    const {user_id} = req.user;
     const {sectionId, departmentId} = req.params;
     const client = await pool.connect();
 
@@ -58,7 +57,7 @@ const getResultsSurvey = async (req, res) => {
                     question_details.options.push(opt);
                 });
 
-                let getQuestionRates = await client.query("select A.Rate from Answers as A where A.Teacher_id = ($1) and A.Section_id = ($2) and A.Question_id = ($3)", [user_id, sectionId, Question_id]);
+                let getQuestionRates = await client.query("select A.Rate from Answers as A where A.Section_id = ($1) and A.Question_id = ($2)", [sectionId, Question_id]);
                 getQuestionRates.rows.forEach(rate => {
                     let rate = Number(rate.Rate);
                     question_details.options[rate-1].count ++;
@@ -79,7 +78,7 @@ const getResultsSurvey = async (req, res) => {
         });
         const course_score = ((course_score_temp/course_max_score)*100).toFixed(2); 
 
-        const getFreeText = client.query("select A.Free_text from Active_Free_Texts as A where A.Teacher_id = ($1) and A.Section_id = ($2)", [user_id, sectionId]);
+        const getFreeText = client.query("select A.Free_text from Active_Free_Texts as A where A.Section_id = ($1)", [sectionId]);
         const free_text = getFreeText.rows;
 
         resp = {
@@ -103,12 +102,8 @@ const getCourseScore = async (req,res) => {
     const {sectionId} = req.params;
     const client =await pool.connect();
     try {
-        const getCourseScore = client.query("select T.Section_Teacher_sum_of_rates from teaches as T where T.Teacher_id = ($1) and T.Section_id = ($2)", [user_id, sectionId]);
-        const getNoOfVotes = client.query("select S.Section_no_of_votes from Sections as S where S.Section_id  = ($1)", [sectionId]);
-        // CHECK HERE WE NEED MAX POSS SCORE SOMEHOW
-        const max_score = 2;
-        const score = (((getCourseScore.rows[0].Section_Teacher_sum_of_rates / getNoOfVotes.rows[0].Section_no_of_votes)/ max_score) * 100).toFixed(2);
-        const resp = { score: score};
+        let ans = getScoreCourse(sectionId);
+        const resp = { score: ans.score, participation_rate: ans.rate};
         return res.status(200).json(resp);
     } catch (error) {
         return res.status(500).json({message: error.message});
@@ -122,10 +117,10 @@ const getTeacherScore = async (req,res) => {
     const client = await pool.connect();
     try {
         let courses_score = 0;
-        const getScoreRows = await client.query("select T.Section_Teacher_sum_of_rates, T.Section_id from teaches as T where T.Teacher_id = ($1)", [user_id]);
+        const getScoreRows = await client.query("select T.Section_id from teaches as T where T.Teacher_id = ($1)", [user_id]);
         getScoreRows.rows.forEach(scoreRow => {
-            let {Section_Teacher_sum_of_rates, Section_id} = scoreRow;
-            courseScore += getScoreCourse(Section_id, user_id, Section_Teacher_sum_of_rates);
+            let {Section_id} = scoreRow;
+            courseScore += getScoreCourse(Section_id).score;
         });
         courses_score = (courses_score / getScoreRows.rowCount).toFixed(2);
         const resp = {score: courses_score};
