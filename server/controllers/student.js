@@ -1,11 +1,20 @@
 const pool = require("../db/index");
 
 const getCourses = async (req, res) => {
-  const { user_id } = req.user_id;
+  const { user_id, branch_id, department_id } = req.user_id;
+  const client = await pool.connect();
 
   try {
-    const getAvailableSurveys = await pool.query(
-      " QUERY TO GET COURSES WITH AVAILABLE SURVEYS"
+    const checkDate = await client.query(
+      "select Start_Date from Department_Branch where Branch_id = ($1) and Department_id = ($2)",
+      [branch_id, department_id]
+    );
+    if (checkDate.rows[0].Start_Date) {
+      return res.status(401).json({ message: "No surveys available" });
+    }
+    const getAvailableSurveys = await client.query(
+      " select X.section_id, C.Course_code, C.Course_name, X.Department_id from Courses as C inner join (  select S.Course_id, S.Section_id, S.Department_id from Sections as S where S.Section_id in ( select R.Section_id from registered_in as R where R.Student_id = ($1) and not R.is_voted )) as X",
+      [user_id]
     );
 
     if (!getAvailableSurveys.rowCount)
@@ -15,7 +24,7 @@ const getCourses = async (req, res) => {
       survey_count: getAvailableSurveys.rowCount,
       total_courses: total_courses,
       total_voted: total_voted,
-      surveys: getAvailableSurveys.rows
+      surveys: getAvailableSurveys.rows,
     };
     return res.status(200).json(resp);
   } catch (error) {
@@ -23,7 +32,19 @@ const getCourses = async (req, res) => {
       message:
         "There was an error while fetching courses. Please try again later",
     });
+  } finally {
+    client.release();
   }
+};
+
+// This funct returns courses seperated by whether or not they're complete
+const getCourses2 = async (req, res) => {
+  try {
+    const getAvailableSurveys = await client.query(
+      " select X.section_id, C.Course_code, C.Course_name, X.Department_id from Courses as C inner join (  select S.Course_id, S.Section_id, S.Department_id from Sections as S where S.Section_id in ( select R.Section_id from registered_in as R where R.Student_id = ($1) and not R.is_voted )) as X",
+      [user_id]
+    );
+  } catch (error) {}
 };
 
 const getSurvey = async (req, res) => {
@@ -31,47 +52,74 @@ const getSurvey = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const getTeacherInfo = await client.query("select T2.Teacher_fname, T2.Teacher_lname, X.Position from Teachers as T2 inner join ( select T1.Teacher_id, T1.Position from teaches as T1 where T1.Section_id = ($1)) as X", [sectionId]);
-    const {Teacher_fname, Teacher_lname, Position, Teacher_id} = getTeacherInfo.rows[0];
-    const getLists = await client.query("select L.List_id, L.List_name from Lists as L where L.List_id in ( select P.List_id from Package_Lists as P where P.Package_id = (  select A.Package_id from Active_Packages as A where A.Department_id = ($1) and Position = ($2)))", 
-    [departmentId, Position]);
+    const getTeacherInfo = await client.query(
+      "select T2.Teacher_fname, T2.Teacher_lname, X.Position from Teachers as T2 inner join ( select T1.Teacher_id, T1.Position from teaches as T1 where T1.Section_id = ($1)) as X",
+      [sectionId]
+    );
+    const {
+      Teacher_fname,
+      Teacher_lname,
+      Position,
+      Teacher_id,
+    } = getTeacherInfo.rows[0];
+    const getLists = await client.query(
+      "select L.List_id, L.List_name from Lists as L where L.List_id in ( select P.List_id from Package_Lists as P where P.Package_id = (  select A.Package_id from Active_Packages as A where A.Department_id = ($1) and Position = ($2)))",
+      [departmentId, Position]
+    );
     const lists = getLists.rows;
 
-    let questions = [];
+    let list_return = [];
 
-    lists.forEach(list => {
-      let getListQuestions = await client.query("select L1.Question_id, L1.Question_weight from List_Questions as L1 where L1.List_id = ($1)", list.List_id);
+    for (const list of lists) {
+      let getListQuestions = await client.query(
+        "select L1.Question_id, L1.Question_weight from List_Questions as L1 where L1.List_id = ($1)",
+        list.List_id
+      );
       let list_questions = getListQuestions.rows;
-      list_questions.forEach(question => {
-        let questionInfo ={
-          question_id: '',
-          question_description: '',
+      let questions = [];
+      for (const question of list_questions) {
+        let questionInfo = {
+          question_id: "",
+          question_description: "",
           number_options: 0,
           weight: question.Question_weight,
-          options: []
-        }
-        let getQuestionInfo = await client.query("select Q.Question_id, Q.Question_description, Q.No_of_options from Questions as Q1 where Q1.Question_id = ($1)", question.Question_id);
-        let {Question_id, Question_description, No_of_options} = getQuestionInfo.rows[0];
+          options: [],
+        };
+        let getQuestionInfo = await client.query(
+          "select Q.Question_id, Q.Question_description, Q.No_of_options from Questions as Q1 where Q1.Question_id = ($1)",
+          question.Question_id
+        );
+        let {
+          Question_id,
+          Question_description,
+          No_of_options,
+        } = getQuestionInfo.rows[0];
         questionInfo.question_id = Question_id;
         questionInfo.question_description = Question_description;
         questionInfo.number_options = No_of_options;
 
-        let getOptionId = await client.query("select Q1.Option_id from Question_Options as Q1 where Q.Question_id = ($1)", [Question_id]);
+        let getOptionId = await client.query(
+          "select Q1.Option_id from Question_Options as Q1 where Q.Question_id = ($1)",
+          [Question_id]
+        );
         let optionIds = getOptionId.rows;
-        optionIds.forEach(optionId => {
-          let getOptionInfo = await client.query("select O1.Option_id, Option_description from Options as O1 where O1.Option_id = ($1)", [optionId.Option_id]);
-          let {Option_id, Option_description} = getOptionInfo.rows[0];
+        for (const optionId of optionIds) {
+          let getOptionInfo = await client.query(
+            "select O1.Option_id, Option_description from Options as O1 where O1.Option_id = ($1)",
+            [optionId.Option_id]
+          );
+          let { Option_id, Option_description } = getOptionInfo.rows[0];
           let opt = {
             option_id: Option_id,
-            option_description: Option_description
+            option_description: Option_description,
           };
           questionInfo.options.push(opt);
-        });
+        }
 
         questions.push(questionInfo);
-
-      });
-    });
+      }
+      list_return.push({ list_name: list.List_name, questions: questions });
+    }
 
     resp = {
       teacher: {
@@ -79,11 +127,10 @@ const getSurvey = async (req, res) => {
         first_name: Teacher_fname,
         last_name: Teacher_lname,
       },
-      questions: questions
-    }
+      lists: list_return,
+    };
 
     return res.status(200).json(resp);
-
   } catch (error) {
     return res.status(500).json({
       message: error.message,
@@ -94,43 +141,74 @@ const getSurvey = async (req, res) => {
 };
 
 const postSurvey = async (req, res) => {
-  const {user_id} = req.user;
-  const {section_id} = req.params;
+  const { user_id } = req.user;
+  const { section_id } = req.params;
   const { teacher_id, free_text, answers } = req.body;
   const client = await pool.connect();
 
   try {
-    let sumRates=0;
+    let sumRates = 0;
     let sumWeights = 0;
-    answers.forEach(answer => {
-      let {question_id, weight, number_options, rate} = answer;
-      let saveAnswer = await client.query("insert into Answers(Teacher_id, Question_id, Student_id, Rate) values (($1), ($2),($3) ,($4))", [teacher_id, question_id, user_id, rate]);
-      sumRates+= (rate / number_options) * weight;
+    for (const answer of answers) {
+      let { question_id, weight, number_options, rate } = answer;
+      let saveAnswer = await client.query(
+        "insert into Answers(Teacher_id, Question_id, Student_id, Rate) values (($1), ($2),($3) ,($4))",
+        [teacher_id, question_id, user_id, rate]
+      );
+      sumRates += (rate / number_options) * weight;
       sumWeights += weight;
-
-    });
+    }
     let score = ((sumRates / sumWeights) * 100).toFixed(2);
-    let query_run = await client.query('BEGIN');
-      let query_text = "update registered_in set is_voted = true, Vote_date = ($1) , Vote_time = ($2) where Student_id = ($3)";
-      let today = new Date();
-      let date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
-      let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
-      let query_values = [date, time, user_id]
-      query_run = await client.query(query_text, query_values);
-      query_run = await client.query("update teaches set Section_Teacher_sum_rates = Section_Teacher_sum_rates + ($1) where Section_id = ($2) and Teacher_id = ($3);",[score, section_id, teacher_id]);
-      query_run = await client.query("update Sections set Section_no_of_votes = Section_no_of_votes + 1 where Section_id = ($1)",[section_id]);
-      const Section_info = await client.query("select * from Sections where Section_id = ($1)", [section_id]);
-      const {Branch_id, Department_id} = Section_info.rows[0];
-      query_run = await client.query("update Branches set Branch_real_votes = Branch_real_votes + 1, Branch_sum_of_rates = Branch_sum_of_rates + ($1) where Branch_id = ($2)",[score, Branch_id]);
-      query_run = await client.query("update Department_Branch set Dep_real_votes = Dep_real_votes + 1, Dep_sum_of_rates = Dep_sum_of_rates + ($1) where Branch_id = ($2) and Department_id = ($3)",[score,Branch_id,Department_id]);
-      query_run = await client.query("update Faculities set Faculty_real_votes = Faculty_real_votes + 1, Faculty_sum_of_rates = Faculty_sum_of_rates + ($1) where Faculty_id = (select D.Faculty_id from Departments as D where D.Department_id = ($2);)",[score,Department_id]);
+    let query_run = await client.query("BEGIN");
+    let query_text =
+      "update registered_in set is_voted = true, Vote_date = ($1) , Vote_time = ($2) where Student_id = ($3)";
+    let today = new Date();
+    let date =
+      today.getFullYear() +
+      "-" +
+      (today.getMonth() + 1) +
+      "-" +
+      today.getDate();
+    let time =
+      today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+    let query_values = [date, time, user_id];
+    query_run = await client.query(query_text, query_values);
+    query_run = await client.query(
+      "update teaches set Section_Teacher_sum_rates = Section_Teacher_sum_rates + ($1) where Section_id = ($2) and Teacher_id = ($3);",
+      [score, section_id, teacher_id]
+    );
+    query_run = await client.query(
+      "update Sections set Section_no_of_votes = Section_no_of_votes + 1 where Section_id = ($1)",
+      [section_id]
+    );
+    const Section_info = await client.query(
+      "select * from Sections where Section_id = ($1)",
+      [section_id]
+    );
+    const { Branch_id, Department_id } = Section_info.rows[0];
+    query_run = await client.query(
+      "update Branches set Branch_real_votes = Branch_real_votes + 1, Branch_sum_of_rates = Branch_sum_of_rates + ($1) where Branch_id = ($2)",
+      [score, Branch_id]
+    );
+    query_run = await client.query(
+      "update Department_Branch set Dep_real_votes = Dep_real_votes + 1, Dep_sum_of_rates = Dep_sum_of_rates + ($1) where Branch_id = ($2) and Department_id = ($3)",
+      [score, Branch_id, Department_id]
+    );
+    query_run = await client.query(
+      "update Faculities set Faculty_real_votes = Faculty_real_votes + 1, Faculty_sum_of_rates = Faculty_sum_of_rates + ($1) where Faculty_id = (select D.Faculty_id from Departments as D where D.Department_id = ($2);)",
+      [score, Department_id]
+    );
 
-    if(free_text){
-      let saveFreeText = await client.query("insert into Active_Free_Texts(Teacher_id, Student_id, Section_id, Free_text) values ( ($1),($2),($3) ,($4))", [teacher_id,user_id, section_id, free_text]);}
-    
-    return res.status(200).json({message: "Saved successfully"});
+    if (free_text) {
+      let saveFreeText = await client.query(
+        "insert into Active_Free_Texts(Teacher_id, Student_id, Section_id, Free_text) values ( ($1),($2),($3) ,($4))",
+        [teacher_id, user_id, section_id, free_text]
+      );
+    }
+
+    return res.status(200).json({ message: "Saved successfully" });
   } catch (error) {
-    return res.status(500).json({message: error.message});
+    return res.status(500).json({ message: error.message });
   } finally {
     client.release();
   }
