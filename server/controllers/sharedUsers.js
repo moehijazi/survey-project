@@ -181,6 +181,7 @@ const forgotPassword = async (req, res) => {
   }
 };
 
+//Reset a password from a reset request
 const resetPassword = async (req, res) => {
   const { req_id, password, role } = req.body;
   try {
@@ -249,42 +250,113 @@ const resetPassword = async (req, res) => {
   }
 };
 
-const changeEmail = async (req, res) => {
-  try {
-    const { user_id, role } = req.user;
-    const { new_email } = req.body;
-    const addemail = await pool.query("ADD QUERY HERE DEPENDING ON ROLE");
-    if (!addemail) return res.status(404).json({ message: "User not found" });
-    return res.status(200).json("Email changed");
-  } catch (error) {
-    return res.status(500).json({
-      message:
-        "There was an error while changing email. Please try again later",
-    });
-  }
-};
-
+//Change a user's password
 const changePassword = async (req, res) => {
-  const { user_id, role } = req.user;
+  const { id, role } = req.user;
   const { oldPassword, newPassword } = req.body;
+  const client = await pool.connect();
   try {
-    const checkPass = await bcrypt.compare(
-      oldPassword,
-      getUser.rows[0].password
-    );
-    if (!checkPass) {
-      return res.status(401).json({
-        message: "Incorrect password. Please try again later",
-      });
+    let currentPass;
+    switch (role) {
+      case "student":
+        const getUser = await client.query(
+          "select S.Student_password from Students as S where S.Student_id = ($1);",
+          [id]
+        );
+        currentPass = getUser.rows[0].Student_password;
+        const checkPass = await bcrypt.compare(oldPassword, currentPass);
+        if (!checkPass) {
+          return res.status(401).json({
+            message: "Incorrect password. Please try again later",
+          });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const updateUser = await client.query(
+          "UPDATE Students SET Student_password = ($1) WHERE Student_id = ($2);",
+          [hashedPassword, id]
+        );
+        break;
+      case "teacher":
+        getUser = await client.query(
+          "select S.Teacher_password from Teachers as S where S.Teacher_id = ($1);",
+          [id]
+        );
+        currentPass = getUser.rows[0].Teacher_password;
+        const checkPass = await bcrypt.compare(oldPassword, currentPass);
+        if (!checkPass) {
+          return res.status(401).json({
+            message: "Incorrect password. Please try again later",
+          });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const updateUser = await client.query(
+          "UPDATE Teachers SET Teacher_password = ($1) WHERE Teacher_id = ($2);",
+          [hashedPassword, id]
+        );
+        break;
+      case "department manager":
+        getUser = await client.query(
+          "select S.Dep_Manager_password from Department_Managers as S where S.Dep_Manager_id = ($1);",
+          [id]
+        );
+        currentPass = getUser.rows[0].Dep_Manager_password;
+        const checkPass = await bcrypt.compare(oldPassword, currentPass);
+        if (!checkPass) {
+          return res.status(401).json({
+            message: "Incorrect password. Please try again later",
+          });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const updateUser = await client.query(
+          "UPDATE Department_Managers SET Dep_Manager_password = ($1) WHERE Dep_Manager_id = ($2);",
+          [hashedPassword, id]
+        );
+        break;
+      case "faculty manager":
+        getUser = await client.query(
+          "select F.Faculty_manager_password from Faculty_Managers as F where F.Faculty_manager_id = ($1);",
+          [id]
+        );
+        currentPass = getUser.rows[0].Faculty_manager_password;
+        const checkPass = await bcrypt.compare(oldPassword, currentPass);
+        if (!checkPass) {
+          return res.status(401).json({
+            message: "Incorrect password. Please try again later",
+          });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const updateUser = await client.query(
+          "UPDATE Faculty_Managers SET Faculty_manager_password = ($1) WHERE Faculty_manager_id = ($2);",
+          [hashedPassword, id]
+        );
+        break;
+      case "dean":
+        getUser = await client.query(
+          "select D.Dean_password from Deans as D where D.Dean_id = ($1);",
+          [id]
+        );
+        currentPass = getUser.rows[0].Dean_password;
+        const checkPass = await bcrypt.compare(oldPassword, currentPass);
+        if (!checkPass) {
+          return res.status(401).json({
+            message: "Incorrect password. Please try again later",
+          });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const updateUser = await client.query(
+          "UPDATE Deanss SET Dean_password = ($1) WHERE Dean_id = ($2);",
+          [hashedPassword, id]
+        );
+        break;
     }
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const updateUser = await pool.query("update pass");
-    return res.status(200).json("Email changed");
+    return res.status(200).json("Password changed");
   } catch (error) {
     return res.status(500).json({
       message:
         "There was an error while changing Password. Please try again later",
     });
+  } finally {
+    client.release();
   }
 };
 
@@ -306,7 +378,6 @@ module.exports = {
   loginUser,
   forgotPassword,
   resetPassword,
-  changeEmail,
   changePassword,
   addUser,
 };

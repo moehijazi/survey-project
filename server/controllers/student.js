@@ -1,50 +1,44 @@
 const pool = require("../db/index");
 
+// This funct returns courses seperated by whether or not they're complete
 const getCourses = async (req, res) => {
-  const { user_id, branch_id, department_id } = req.user_id;
+  const { branch_id, department_id } = req.user;
   const client = await pool.connect();
-
   try {
     const checkDate = await client.query(
       "select Start_Date from Department_Branch where Branch_id = ($1) and Department_id = ($2)",
       [branch_id, department_id]
     );
-    if (checkDate.rows[0].Start_Date) {
+    let cur_date = new Date();
+    if (checkDate.rows[0].Start_Date > cur_date) {
       return res.status(401).json({ message: "No surveys available" });
     }
-    const getAvailableSurveys = await client.query(
+
+    const AvailableSurveys = await client.query(
       " select X.section_id, C.Course_code, C.Course_name, X.Department_id from Courses as C inner join (  select S.Course_id, S.Section_id, S.Department_id from Sections as S where S.Section_id in ( select R.Section_id from registered_in as R where R.Student_id = ($1) and not R.is_voted )) as X",
       [user_id]
     );
+    const DoneSurveys = await client.query(
+      " select X.section_id, C.Course_code, C.Course_name, X.Department_id from Courses as C inner join (  select S.Course_id, S.Section_id, S.Department_id from Sections as S where S.Section_id in ( select R.Section_id from registered_in as R where R.Student_id = ($1) and R.is_voted )) as X",
+      [user_id]
+    );
 
-    if (!getAvailableSurveys.rowCount)
+    if (!AvailableSurveys.rowCount && !DoneSurveys.rowCount) {
       return res.status(401).json({ message: "No surveys available" });
-
+    }
     const resp = {
-      survey_count: getAvailableSurveys.rowCount,
-      total_courses: total_courses,
-      total_voted: total_voted,
-      surveys: getAvailableSurveys.rows,
+      survey_count: AvailableSurveys.rowCount,
+      total_courses: AvailableSurveys.rowCount + DoneSurveys.rowCount,
+      voted_count: DoneSurveys.rowCount,
+      surveys: AvailableSurveys.rows,
+      voted_surveys: DoneSurveys.rows,
     };
+
     return res.status(200).json(resp);
   } catch (error) {
-    return res.status(500).json({
-      message:
-        "There was an error while fetching courses. Please try again later",
-    });
   } finally {
     client.release();
   }
-};
-
-// This funct returns courses seperated by whether or not they're complete
-const getCourses2 = async (req, res) => {
-  try {
-    const getAvailableSurveys = await client.query(
-      " select X.section_id, C.Course_code, C.Course_name, X.Department_id from Courses as C inner join (  select S.Course_id, S.Section_id, S.Department_id from Sections as S where S.Section_id in ( select R.Section_id from registered_in as R where R.Student_id = ($1) and not R.is_voted )) as X",
-      [user_id]
-    );
-  } catch (error) {}
 };
 
 const getSurvey = async (req, res) => {

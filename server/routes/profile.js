@@ -1,7 +1,5 @@
 const Router = require("express").Router();
-const { changeEmail, changePassword } = require("../controllers/sharedUsers");
-
-Router.post("/email", changeEmail);
+const { changePassword } = require("../controllers/sharedUsers");
 
 Router.post("/password", changePassword);
 
