@@ -62,6 +62,20 @@ const BranchesByFaculty = async (Faculty_id) => {
     }
 }
 
-const Faculties = async () => {}
+const Faculties = async () => {
+    try {
+        let faculties = [];
+        let  score = 0; participation = 0;
+        const getInfo = await pool.query("select F.Faculty_id, F.Faculty_name, F.Faculty_max_votes, F.Faculty_real_votes, F.Faculty_sum_of_rates from Faculties as F");
+    getInfo.rows.forEach(row => {
+      score = (row.Faculty_sum_of_rates / row.Faculty_real_votes).toFixed(2);
+      participation = ((row.Faculty_real_votes / row.Faculty_max_votes) * 100).toFixed(2);
+      faculties.push({faculty_id: row.Faculty_id, faculty_name: row.Faculty_name, faculty_score: score, faculty_participation: participation});
+    });
+    return faculties;
+    } catch (error) {
+        
+    }
+}
 
-module.exports = {CoursesByDepartment, DepartmentsByFacBranch, BranchesByFaculty};
+module.exports = {CoursesByDepartment, DepartmentsByFacBranch, BranchesByFaculty, Faculties};

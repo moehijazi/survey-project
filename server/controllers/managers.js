@@ -2,7 +2,7 @@ const pool = require("../db/index");
 const {
   CoursesByDepartment,
   DepartmentsByFacBranch,
-  BranchesByFaculty,
+  BranchesByFaculty, Faculties
 } = require("../services/Managers");
 
 const getBranches = async (req, res) => {
@@ -19,7 +19,7 @@ const getBranches = async (req, res) => {
       );
       faculty_id = getFaculty.rows[0].Faculty_id;
     }
-    const branches = BranchesByFaculty(faculty_id);
+    const branches = await BranchesByFaculty(faculty_id);
     return res.status(200).json(branches);
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -42,11 +42,11 @@ const getFacultyScore = async (req, res) => {
       faculty_id = getFaculty.rows[0].Faculty_id;
     }
     const getScores = await client.query(
-      "select Faculty_max_votes, Faculty_real_votes, Faculty_sum_of_votes from Faculties where Faculty_id = ($1)",
+      "select Faculty_max_votes, Faculty_real_votes, Faculty_sum_of_rates from Faculties where Faculty_id = ($1)",
       [faculty_id]
     );
     let score = (
-      getScores.rows[0].Faculty_sum_of_votes /
+      getScores.rows[0].Faculty_sum_of_rates /
       getScores.rows[0].Faculty_real_votes
     ).toFixed(2);
     let participation = (
@@ -79,7 +79,7 @@ const getDepartments = async (req, res) => {
       faculty_id = getFaculty.rows[0].Faculty_id;
       branch_id = getFaculty.rows[0].Branch_id;
     }
-    const departments = DepartmentsByFacBranch(faculty_id, branch_id);
+    const departments = await DepartmentsByFacBranch(faculty_id, branch_id);
     return res.status(200).json(departments);
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -98,7 +98,7 @@ const getCourses = async (req, res) => {
       department_id = req.user.department_id;
       branch_id = req.user.branch_id;
     }
-    const courses = CoursesByDepartment(department_id, branch_id);
+    const courses = await CoursesByDepartment(department_id, branch_id);
     return res.status(200).json(courses);
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -140,3 +140,54 @@ const getFaculties = async (req, res) => {
     client.release();
   }
 };
+
+const getUniScore = async (req,res) => {
+  try {
+    let score= 0;let participation = 0;
+    const faculties = await Faculties();
+    faculties.forEach(fac => {
+      score += fac.faculty_score;
+      participation += fac.faculty_participation;
+    });
+    score = (score / faculties.length).toFixed(2);
+    participation = (participation / faculties.length).toFixed(2);
+    const resp = {score: score, participation: participation};
+    return res.status(200).json(resp);
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+}
+
+const getFacultyBranchScore = async (req, res) => {
+  const {faculty_id, branch_id} = req.user;
+  try {
+    const deps = await DepartmentsByFacBranch(faculty_id, branch_id);
+    let score = 0; let participation = 0;
+    deps.forEach(dep => {
+      score += dep.department_score;
+      participation += dep.department_participation;
+    });
+    score = (score / deps.length).toFixed(2);
+    participation = (participation / deps).toFixed(2);
+    resp = {score: score, participation: participation};
+    return res.status(200).json(resp);
+
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+}
+
+const getDepartmentBranchScore = async (req, res) => {
+  const {user_id} = req.user;
+  try {
+    const getInfo = await pool.query("select D.Dep_real_votes, D.Dep_max_votes, D.Dep_sum_of_rates from Department_Branch as D where Dep_Manager_id =($1)",[user_id]);
+    const score = (getInfo.rows[0].Dep_sum_of_rates / getInfo.rows[0].Dep_real_votes).toFixed(2);
+    const participation = ((getInfo.rows[0].Dep_real_votes / getInfo.rows[0].Dep_max_votes) * 100).toFixed(2);
+    resp = {score: score, participation:participation};
+    return res.status(200).json(resp);
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+}
+
+module.exports = {getBranches, getFacultyScore, getDepartments, getCourses, getFaculties}
