@@ -15,8 +15,8 @@ const createResetRequest = async (email, role, user_id) => {
 
   try {
     const insertQuery = await pool.query(
-      "INSERT INTO Reset_Requests (Request_id, Request_email, User_id) VALUES (($1), ($2), ($3));",
-      [id, email, user_id]
+      "INSERT INTO Reset_Requests (Request_id, Request_email, User_id, user_role) VALUES (($1), ($2), ($3), ($4));",
+      [id, email, user_id, role]
     );
     const mailOptions = {
       from: process.env.EMAIL_ACC,
@@ -26,9 +26,10 @@ const createResetRequest = async (email, role, user_id) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    return info;
+    return 1;
   } catch (error) {
-    return error.message;
+    console.log(error);
+    return 0;
   }
 };
 

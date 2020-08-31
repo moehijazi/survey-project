@@ -7,18 +7,22 @@ const checkAuth = async (req, res, next) => {
   if (!token)
     return res.status(401).json({ message: "Failed to authenticate" });
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, data) => {
-    if (err) return res.status(500).json({ message: "Failed to authenticate" });
-    const { id, role } = data;
+    if (err) {
+      return res.status(500).json({ message: "Failed to authenticate" });
+    }
+    const role = data.role;
+    const id = data.id;
+    let getUser;
     switch (role) {
       case "student":
-        const getUser = await pool.query(
+        getUser = await pool.query(
           "select * from Students as S where S.Student_id = ($1);",
           [id]
         );
         req.user = {
-          user_id: getUser.rows[0].Student_id,
-          branch_id: getUser.rows[0].Branch.id,
-          department_id: getUser.rows[0].Department_id,
+          user_id: getUser.rows[0].student_id,
+          branch_id: getUser.rows[0].branch_id,
+          department_id: getUser.rows[0].department_id,
           role: role,
         };
         break;
@@ -27,7 +31,7 @@ const checkAuth = async (req, res, next) => {
           "select * from Teachers as S where S.Teacher_id = ($1);",
           [id]
         );
-        req.user = { user_id: getUser.rows[0].Teacher_id, role: role };
+        req.user = { user_id: id, role: role };
         break;
       case "department manager":
         getUser = await pool.query(
@@ -37,8 +41,8 @@ const checkAuth = async (req, res, next) => {
         req.user = {
           user_id: id,
           role: role,
-          branch_id: getUser.rows[0].Branch_id,
-          department_id: getUser.rows[0].Department_id,
+          branch_id: getUser.rows[0].branch_id,
+          department_id: getUser.rows[0].department_id,
         };
         break;
       case "faculty manager":
@@ -49,8 +53,8 @@ const checkAuth = async (req, res, next) => {
         req.user = {
           user_id: id,
           role: role,
-          faculty_id: getUser.rows[0].Faculty_id,
-          branch_id: getUser.rows[0].Branch_id,
+          faculty_id: getUser.rows[0].faculty_id,
+          branch_id: getUser.rows[0].branch_id,
         };
         break;
       case "dean":
@@ -61,7 +65,7 @@ const checkAuth = async (req, res, next) => {
         req.user = {
           user_id: id,
           role: role,
-          faculty_id: getUser.rows[0].Faculty_id,
+          faculty_id: getUser.rows[0].faculty_id,
         };
         break;
 
