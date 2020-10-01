@@ -218,4 +218,45 @@ const postSurvey = async (req, res) => {
   }
 };
 
-module.exports = { getCourses, getSurvey, postSurvey };
+const saveDeviceToken = async (req, res) => {
+  const { user_id } = req.user;
+  const { token } = req.body;
+
+  try {
+    const saveToken = await pool.query(
+      'UPDATE students SET "token" = ($1) where student_id = ($2)',
+      [token, user_id]
+    );
+    return res.status(200).json("Token succesfully saved");
+  } catch (error) {
+    return res.status(500).json({
+      message: "An error occured when saving token",
+      error: error.message,
+    });
+  }
+};
+
+const removeDeviceToken = async (req, res) => {
+  const { user_id } = req.user;
+
+  try {
+    const deleteToken = await pool.query(
+      'UPDATE students SET "token" = null where student_id = ($2)',
+      [token, user_id]
+    );
+    return res.status(200).json("Token succesfully ovedrem");
+  } catch (error) {
+    return res.status(500).json({
+      message: "An error occured when deleting token",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  getCourses,
+  getSurvey,
+  postSurvey,
+  saveDeviceToken,
+  removeDeviceToken,
+};

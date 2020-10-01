@@ -15,7 +15,7 @@ const createResetRequest = async (email, role, user_id) => {
 
   try {
     const insertQuery = await pool.query(
-      "INSERT INTO Reset_Requests (Request_id, Request_email, User_id, user_role) VALUES (($1), ($2), ($3), ($4));",
+      "INSERT INTO Reset_Requests (unique_id, Request_email, User_id, user_role) VALUES (($1), ($2), ($3), ($4));",
       [id, email, user_id, role]
     );
     const mailOptions = {
@@ -35,7 +35,7 @@ const createResetRequest = async (email, role, user_id) => {
 
 const getResetRequest = async (id) => {
   const ans = await pool.query(
-    "SELECT * FROM Reset_Requests WHERE Request_id= ($1)",
+    "SELECT * FROM Reset_Requests WHERE unique_id= ($1)",
     [id]
   );
   return ans;

@@ -40,28 +40,39 @@ const getCourses = async (req, res) => {
 
 const getResultsSurvey = async (req, res) => {
   const { sectionId, departmentId } = req.params;
-  const { user_id } = req.user;
+  let { user_id, role } = req.user;
   const client = await pool.connect();
 
   try {
     const getParticipation = await client.query(
-      "select S.Section_total_students, S.Section_no_of_votes from Sections as S where S.Section_id = ($1)",
+      "select S.Section_total_students, S.Section_no_of_votes, S.Course_id from Sections as S where S.Section_id = ($1)",
       [sectionId]
     );
     const {
       section_total_students,
       section_no_of_votes,
+      course_id,
     } = getParticipation.rows[0];
     const participation_rate = (
       (Number(section_no_of_votes) / Number(section_total_students)) *
       100
     ).toFixed(2);
 
-    const getPosition = await client.query(
-      "select position from teaches where teacher_id = ($1) and section_id = ($2)",
-      [user_id, sectionId]
-    );
-    let position = getPosition.rows[0].position;
+    let position;
+    if (role == "teacher") {
+      let getPosition = await client.query(
+        "select position from teaches where teacher_id = ($1) and section_id = ($2)",
+        [user_id, sectionId]
+      );
+      position = getPosition.rows[0].position;
+    } else {
+      let getPosition = await client.query(
+        "select position, teacher_id from teaches where section_id = ($1)",
+        [sectionId]
+      );
+      position = getPosition.rows[0].position;
+      user_id = getPosition.rows[0].teacher_id;
+    }
 
     const questions = [];
 
@@ -134,13 +145,30 @@ const getResultsSurvey = async (req, res) => {
       2
     );
     const getFreeText = await client.query(
-      "select A.Free_text from Active_Free_Texts as A where A.Section_id = ($1)",
+      "select A.Free_text, a.active_ft_id from Active_Free_Texts as A where A.Section_id = ($1)",
       [sectionId]
     );
     let free_text = [];
     getFreeText.rows.forEach((row) => {
-      free_text.push(row.free_text);
+      if (role == "president") {
+        free_text.push({ text: row.free_text, id: row.active_ft_id });
+      } else {
+        free_text.push(row.free_text);
+      }
     });
+
+    let getInfo = await client.query(
+      "Select course_name, course_code from courses where course_id = ($1) and department_id=($2)",
+      [course_id, departmentId]
+    );
+    let course_name = getInfo.rows[0].course_name;
+    let course_code = getInfo.rows[0].course_code;
+    getInfo = await client.query(
+      "select teacher_fname, teacher_lname from teachers where teacher_id = ($1)",
+      [user_id]
+    );
+    let instructor_name =
+      getInfo.rows[0].teacher_fname + " " + getInfo.rows[0].teacher_lname;
 
     resp = {
       number_of_voters: section_no_of_votes,
@@ -148,6 +176,11 @@ const getResultsSurvey = async (req, res) => {
       questions: questions,
       free_text: free_text,
       course_score: course_score,
+      course_info: {
+        instructor: instructor_name,
+        course_code: course_code,
+        course_name: course_name,
+      },
     };
 
     return res.status(200).json(resp);

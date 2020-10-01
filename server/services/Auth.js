@@ -75,6 +75,12 @@ const checkAuth = async (req, res, next) => {
           role: role,
         };
         break;
+      case "it":
+        req.user = {
+          user_id: id,
+          role: role,
+        };
+        break;
     }
 
     next();

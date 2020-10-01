@@ -67,8 +67,11 @@ const getFacultyScore = async (req, res) => {
 const getDepartments = async (req, res) => {
   const { user_id, role } = req.user;
   let faculty_id, branch_id;
-  if (role != "faculty manager") {
+  if (role == "president") {
     faculty_id = req.params.faculty_id;
+    branch_id = req.params.branch_id;
+  } else if (role == "dean") {
+    faculty_id = req.user.faculty_id;
     branch_id = req.params.branch_id;
   }
   try {

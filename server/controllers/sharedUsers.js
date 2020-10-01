@@ -39,6 +39,25 @@ const loginUser = async (req, res) => {
       resp.user.last_name = checkId.rows[0].student_lname;
       resp.user.email = checkId.rows[0].student_email;
     }
+    if (role === "it") {
+      Role = "it";
+      const checkId = await client.query(
+        "select * from it_managers as S wHEre S.it_manager_id = ($1)",
+        [id]
+      );
+      if (!checkId.rowCount) {
+        return res
+          .status(404)
+          .json({ message: "User not found. Please try again." });
+      }
+      checkPass = await bcrypt.compare(
+        password,
+        checkId.rows[0].it_manager_password
+      );
+      resp.user.first_name = checkId.rows[0].it_manager_fname;
+      resp.user.last_name = checkId.rows[0].it_manager_lname;
+      resp.user.email = checkId.rows[0].it_manager_email;
+    }
     if (role === "staff") {
       let checkId = await pool.query(
         "select * from Teachers as S where S.Teacher_id = ($1);",
@@ -127,6 +146,8 @@ const loginUser = async (req, res) => {
     return res.status(200).json(resp);
   } catch (error) {
     return res.status(500).json(error.message);
+  } finally {
+    client.release();
   }
 };
 
@@ -388,10 +409,76 @@ const addUser = async (req, res) => {
   }
 };
 
+const checkUser = async (req, res) => {
+  const { user_id, role } = req.user;
+  const client = await pool.connect();
+  let getUser, fname, lname;
+  try {
+    switch (role) {
+      case "student":
+        getUser = await client.query(
+          "select S.student_fname, S.student_lname from Students as S where S.Student_id = ($1);",
+          [user_id]
+        );
+        fname = getUser.rows[0].student_fname;
+        lname = getUser.rows[0].student_lname;
+        break;
+      case "teacher":
+        getUser = await client.query(
+          "select S.teacher_fname, S.teacher_lname from teachers as S where S.teacher_id = ($1);",
+          [user_id]
+        );
+        fname = getUser.rows[0].teacher_fname;
+        lname = getUser.rows[0].teacher_lname;
+        break;
+      case "department manager":
+        getUser = await client.query(
+          "select S.Dep_Manager_fname, S.Dep_manager_lname from Department_Managers as S where S.Dep_Manager_id = ($1);",
+          [user_id]
+        );
+        fname = getUser.rows[0].dep_manager_fname;
+        lname = getUser.rows[0].dep_manager_lname;
+        break;
+      case "faculty manager":
+        getUser = await client.query(
+          "select F.Faculty_manager_fname, F.faculty_manager_lname from Faculty_Managers as F where F.Faculty_manager_id = ($1);",
+          [user_id]
+        );
+        fname = getUser.rows[0].faculty_manager_fname;
+        lname = getUser.rows[0].faculty_manager_lname;
+        break;
+      case "it":
+        getUser = await client.query(
+          "select F.it_manager_fname, F.it_manager_lname from it_managers as F where F.it_manager_id = ($1);",
+          [user_id]
+        );
+        fname = getUser.rows[0].it_manager_fname;
+        lname = getUser.rows[0].it_manager_lname;
+        break;
+      default:
+        getUser = await client.query(
+          "select D.Dean_fname, D.dean_lname from Deans as D where D.Dean_id = ($1);",
+          [user_id]
+        );
+        fname = getUser.rows[0].dean_fname;
+        lname = getUser.rows[0].dean_lname;
+        break;
+    }
+    return res
+      .status(200)
+      .json({ role: role, first_name: fname, last_name: lname });
+  } catch (error) {
+    return res.status(500).json(error);
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   loginUser,
   forgotPassword,
   resetPassword,
   changePassword,
   addUser,
+  checkUser,
 };
